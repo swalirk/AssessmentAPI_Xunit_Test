@@ -111,6 +111,8 @@ namespace AssessmentAPI_Xunit.Controllers
         {
             try
             {
+               
+                
                 var existingBrand = brandinterface.GetBrandById(id);
 
                 var success = await brandinterface.UpdateBrand(id, brand, existingBrand);
