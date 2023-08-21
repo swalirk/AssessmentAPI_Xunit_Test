@@ -65,18 +65,18 @@ namespace TestProject.Controller
         public void AddBrand_ExceptionThrown_ReturnsBadRequest()
         {
             // Arrange
-
+            var brand=fixture.Create<Brand>();
             brandInterface.Setup(repo => repo.AddBrand(It.IsAny<Brand>()))
                 .ThrowsAsync(new Exception("Some error message"));
 
 
             // Act
-            var result =  brandController.AddBrand(new Brand());
+            var result =  brandController.AddBrand(brand);
 
             // Assert
             result.Should().NotBeNull();
             result.Result.Should().BeAssignableTo<BadRequestObjectResult>();
-            brandInterface.Verify(t => t.AddBrand(new Brand()), Times.Never());
+            brandInterface.Verify(t => t.AddBrand(brand), Times.Once());
 
         }
         [Fact]
@@ -119,7 +119,7 @@ namespace TestProject.Controller
         [Fact]
         public void GetAllBrands_Return_BadRequest_WhenDatanotFound()
         {
-            ICollection<Brand> brandList = fixture.CreateMany<Brand>(0).ToList();
+            var brandList = fixture.CreateMany<Brand>(0).ToList();
             
             brandInterface.Setup(c => c.GetAllBrands()).Returns(brandList);
 
@@ -155,7 +155,7 @@ namespace TestProject.Controller
         {
             // Arrange
             int vehicleTypeId = fixture.Create<int>();
-            var mockBrands = new List<Brand> { new Brand(), new Brand() };
+            var mockBrands = fixture.CreateMany<Brand>(2).ToList();
             brandInterface.Setup(x => x.GetAllBrandsOfAVehicleType(vehicleTypeId)).Returns(mockBrands);
             vehicleInterface.Setup(x => x.IsExists(vehicleTypeId)).Returns(true);
 
@@ -366,9 +366,5 @@ namespace TestProject.Controller
 
 
     }
-
-
-
-
 
 }
