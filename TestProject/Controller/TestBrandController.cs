@@ -39,19 +39,23 @@ namespace TestProject.Controller
             var returnData = fixture.Create<Brand>();
             brandInterface.Setup(c => c.AddBrand(brandData)).ReturnsAsync(returnData);
             // Act
-            var result =  brandController.AddBrand(returnData);
+            var result =  brandController.AddBrand(brandData);
 
             // Assert
             result.Should().NotBeNull();  
             result.Result.Should().BeAssignableTo<OkObjectResult>();
-            brandInterface.Verify(t => t.AddBrand(returnData), Times.Once());
+            var okObjectResult = result.Result.As<OkObjectResult>();
+            okObjectResult.Value.Should().BeEquivalentTo(returnData);
+            brandInterface.Verify(t => t.AddBrand(brandData), Times.Once());
         }
         [Fact]
         public void AddBrand_NullInput_ReturnsBadRequest()
         {
+            //Arrange
 
             Brand brandData =null;
             brandInterface.Setup(c => c.AddBrand(brandData)).ReturnsAsync((Brand)null);
+
             // Act
             var result = brandController.AddBrand(brandData);
 
@@ -66,7 +70,7 @@ namespace TestProject.Controller
         {
             // Arrange
             var brand=fixture.Create<Brand>();
-            brandInterface.Setup(repo => repo.AddBrand(It.IsAny<Brand>()))
+            brandInterface.Setup(repo => repo.AddBrand(brand))
                 .ThrowsAsync(new Exception("Some error message"));
 
 
@@ -79,23 +83,7 @@ namespace TestProject.Controller
             brandInterface.Verify(t => t.AddBrand(brand), Times.Once());
 
         }
-        [Fact]
-        public async Task AddBrand_ForeignKeyConstraintFails_ReturnsBadRequest()
-        {
-            // Arrange
-           
-            var id = fixture.Create<int>();
-            var invalidBrand = fixture.Create<Brand>(); 
-            brandInterface.Setup(b => b.AddBrand(invalidBrand)).ThrowsAsync(new DbUpdateException("Could not save changes. Please configure your entity type accordingly."));
-
-            // Act
-            var result = await brandController.AddBrand(invalidBrand);
-
-            // Assert
-            result.Should().NotBeNull();
-            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-            Assert.Equal("Could not save changes. Please configure your entity type accordingly.", badRequestResult.Value);
-        }
+      
 
         [Fact]
         public void GetAllBrands_Return_Brands()
@@ -110,15 +98,18 @@ namespace TestProject.Controller
             // Assert
             Assert.IsType<OkObjectResult>(result);
             var okResult = result as OkObjectResult;
+          
             Assert.Equal(StatusCodes.Status200OK, okResult.StatusCode);
             var brands = okResult.Value as List<Brand>;
-            Assert.NotNull(brands);
-            Assert.NotEmpty(brands);
+            brands.Should().NotBeNull().And.NotBeEmpty();
+            Assert.Equal(brandList.Count, brands.Count());
+
         }
 
         [Fact]
         public void GetAllBrands_Return_BadRequest_WhenDatanotFound()
         {
+            //Arrange
             var brandList = fixture.CreateMany<Brand>(0).ToList();
             
             brandInterface.Setup(c => c.GetAllBrands()).Returns(brandList);
@@ -138,6 +129,7 @@ namespace TestProject.Controller
 
 
             // Arrange
+
             brandInterface.Setup(c => c.GetAllBrands()).Throws(new Exception("Something went wrong"));
 
             // Act
@@ -166,14 +158,18 @@ namespace TestProject.Controller
             var okResult = Assert.IsType<OkObjectResult>(result);
             var returnedBrands = Assert.IsAssignableFrom<IEnumerable<Brand>>(okResult.Value);
             Assert.Equal(mockBrands.Count, returnedBrands.Count());
+            brandInterface.Verify(x => x.GetAllBrandsOfAVehicleType(vehicleTypeId),Times.Once());
+            vehicleInterface.Verify(x => x.IsExists(vehicleTypeId),Times.Once());
         }
 
         [Fact]
-        public void GetAllBrandsOfAVehicleType_InvalidId_ReturnsBadRequestWithMessage()
+        public void GetAllBrandsOfAVehicleType_InvalidVehicleId_ReturnsBadRequestWithMessage()
         {
             // Arrange
             int vehicleTypeId =fixture.Create<int>();
+            var mockBrands = fixture.CreateMany<Brand>(2).ToList();
             vehicleInterface.Setup(repo => repo.IsExists(vehicleTypeId)).Returns(false);
+            brandInterface.Setup(x => x.GetAllBrandsOfAVehicleType(vehicleTypeId)).Returns(mockBrands);
 
             // Act
             var result = brandController.GetAllBrandsOfAVehicleType(vehicleTypeId);
@@ -203,6 +199,8 @@ namespace TestProject.Controller
             Assert.Equal(StatusCodes.Status400BadRequest, badRequestResult.StatusCode);
             Assert.Equal("Data Not Found", badRequestResult.Value);
             vehicleInterface.Verify(x => x.IsExists(vehicleTypeId), Times.Once());
+            brandInterface.Verify(b => b.GetAllBrandsOfAVehicleType(vehicleTypeId),Times.Once);
+
         }
         [Fact]
         public void GetAllBrandsByVehicleType_ShouldReturnBadResponse_WhenVehicleIdIsNotExists()
@@ -241,6 +239,7 @@ namespace TestProject.Controller
             var okResult = Assert.IsType<OkObjectResult>(result);
             Assert.Equal("Deleted", okResult.Value);
             brandInterface.Verify(x => x.IsExists(brand.BrandId), Times.Once());
+            brandInterface.Verify(x => x.DeleteBrand(brand.BrandId),Times.Once());
         }
         [Fact]
         public void DeleteBrand_InvalidId_ReturnsBadRequestWithMessage()
@@ -259,6 +258,7 @@ namespace TestProject.Controller
             var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
             Assert.Equal("Something Went Wrong", badRequestResult.Value);
             brandInterface.Verify(x => x.IsExists(brand.BrandId) ,Times.Once());
+            brandInterface.Verify(x => x.DeleteBrand(brand.BrandId), Times.Never());
         }
         [Fact]
         public void DeleteBrand_Exception_ReturnsBadRequestWithExceptionMessage()
@@ -278,6 +278,7 @@ namespace TestProject.Controller
             var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
             Assert.Equal(exceptionMessage, badRequestResult.Value);
             brandInterface.Verify(x => x.IsExists(brand.BrandId), Times.Once());
+            brandInterface.Verify(x => x.DeleteBrand(brand.BrandId), Times.Once());
         }
 
 
@@ -288,10 +289,9 @@ namespace TestProject.Controller
             // Arrange
             int id = fixture.Create<int>();
             var updateBrand = fixture.Create<Brand>();
-            var existing = fixture.Create<Brand>();
-            
-            brandInterface.Setup(b => b.GetBrandById(id)).Returns(existing);
-            brandInterface.Setup(b => b.UpdateBrand(id, updateBrand, existing)).ReturnsAsync(true);
+            updateBrand.BrandId = id;
+            brandInterface.Setup(v => v.IsExists(id)).Returns(true);
+            brandInterface.Setup(b => b.UpdateBrand(id, updateBrand)).ReturnsAsync(true);
 
             // Act
             var result = await brandController.UpdateBrand(id, updateBrand);
@@ -302,6 +302,8 @@ namespace TestProject.Controller
             var okResult = result as OkObjectResult;
             Assert.Equal(StatusCodes.Status200OK, okResult.StatusCode);
             Assert.Equal("Success", okResult.Value);
+            brandInterface.Verify(v => v.IsExists(id),Times.Once());
+            brandInterface.Verify(b => b.UpdateBrand(id, updateBrand), Times.Once());
         }
 
         [Fact]
@@ -310,8 +312,8 @@ namespace TestProject.Controller
             // Arrange
             int id = fixture.Create<int>();
             var updateBrand = fixture.Create<Brand>();
-            var existing = fixture.Create<Brand>();
-            brandInterface.Setup(c => c.UpdateBrand(id, updateBrand, existing)).ReturnsAsync(false);
+            
+            brandInterface.Setup(c => c.UpdateBrand(id, updateBrand)).ReturnsAsync(false);
 
             // Act
             var result = brandController.UpdateBrand(id, updateBrand);
@@ -320,6 +322,7 @@ namespace TestProject.Controller
             result.Should().NotBeNull();
             result.Should().BeAssignableTo<Task<IActionResult>>();
             result.Result.Should().BeAssignableTo<BadRequestResult>();
+            brandInterface.Verify(b => b.UpdateBrand(id, updateBrand), Times.Never());
         }
 
         [Fact]
@@ -328,9 +331,11 @@ namespace TestProject.Controller
             // Arrange
             int id = fixture.Create<int>();
             var updateBrand = fixture.Create<Brand>();
-            var existing = fixture.Create<Brand>();
-            brandInterface.Setup(b => b.GetBrandById(id)).Returns(existing);
-            brandInterface.Setup(b => b.UpdateBrand(id, updateBrand, existing)).ThrowsAsync(new Exception("Something went wrong"));
+          
+            updateBrand.BrandId = id;
+
+            brandInterface.Setup(v => v.IsExists(id)).Returns(true);
+            brandInterface.Setup(b => b.UpdateBrand(id, updateBrand)).ThrowsAsync(new Exception("Something went wrong"));
 
             // Act
             var result = await brandController.UpdateBrand(id, updateBrand);
@@ -341,30 +346,39 @@ namespace TestProject.Controller
             var badRequestResult = result as BadRequestObjectResult;
             Assert.Equal(StatusCodes.Status400BadRequest, badRequestResult.StatusCode);
             Assert.Equal("Something went wrong", badRequestResult.Value);
+            brandInterface.Verify(v => v.IsExists(id), Times.Once());
+            brandInterface.Verify(b => b.UpdateBrand(id, updateBrand), Times.Once());
         }
+
         [Fact]
-        public async Task UpdateBrand_ShouldReturnBadRequest_WhenForeignKeyConstraintFails()
+        public async void UpdateVehicleType_ShouldReturnBadRequestResponse_WhenIdNotInDataBase()
         {
-            // Arrange
+            //Arrange
             int id = fixture.Create<int>();
-            var updateBrand = fixture.Create<Brand>();
-            var existing = fixture.Create<Brand>();
+            var updateBrand= fixture.Create<Brand>();
 
-            brandInterface.Setup(b => b.GetBrandById(id)).Returns(existing);
-            brandInterface.Setup(b => b.UpdateBrand(id, updateBrand, existing)).ThrowsAsync(new DbUpdateException("Could not save changes. Please configure your entity type accordingly."));
+            updateBrand.BrandId = id;
+            brandInterface.Setup(x => x.IsExists(id)).Returns(false);
+            brandInterface.Setup(x => x.UpdateBrand(id, updateBrand)).ReturnsAsync(false);
 
-            // Act
+
+            //Act
             var result = await brandController.UpdateBrand(id, updateBrand);
-
-            // Assert
+            //Assert
             result.Should().NotBeNull();
-            Assert.IsType<BadRequestObjectResult>(result);
-            var badRequestResult = result as BadRequestObjectResult;
-            Assert.Equal(StatusCodes.Status400BadRequest, badRequestResult.StatusCode);
-            Assert.Equal("Could not save changes. Please configure your entity type accordingly.", badRequestResult.Value);
+
+            result.Should().BeAssignableTo<BadRequestObjectResult>();
+            brandInterface.Verify(v => v.IsExists(id), Times.Once());
+            brandInterface.Verify(x => x.UpdateBrand(id, updateBrand), Times.Never());
+
         }
+      
 
 
     }
+
+
+
+
 
 }
