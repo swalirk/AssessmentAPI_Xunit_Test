@@ -19,8 +19,9 @@ namespace AssessmentAPI_Xunit.Service
         public async Task<Brand> AddBrand(Brand brand)
         {
             await dbContext.Brands.AddAsync(brand);
-            var brandIsAdded = await dbContext.SaveChangesAsync();
-            return brandIsAdded > 0 ? brand : null;
+
+            await dbContext.SaveChangesAsync();
+            return brand;
 
         }
         public bool DeleteBrand(int id)
@@ -40,37 +41,9 @@ namespace AssessmentAPI_Xunit.Service
             return dbContext.Brands.ToList();
         }
 
-        public async Task<bool> UpdateBrand(int id, Brand brand, Brand existingBrand)
+        public async Task<bool> UpdateBrand(int id, Brand brand)
         {
-            if (id != brand.BrandId)
-            {
-                return false;
-            }
-
-            if (!string.IsNullOrWhiteSpace(brand.BrandName))
-            {
-                existingBrand.BrandName = brand.BrandName;
-            }
-
-            if (brand.VehicleTypeId != 0)
-            {
-                existingBrand.VehicleTypeId = brand.VehicleTypeId;
-            }
-
-            if (!string.IsNullOrWhiteSpace(brand.Description))
-            {
-                existingBrand.Description = brand.Description;
-            }
-
-            if (brand.SortOrder.HasValue)
-            {
-                existingBrand.SortOrder = brand.SortOrder;
-            }
-
-            if (brand.IsActive.HasValue)
-            {
-                existingBrand.IsActive = brand.IsActive;
-            }
+            dbContext.Brands.Entry(brand).State = EntityState.Modified;
             await dbContext.SaveChangesAsync();
             return true;
 

@@ -86,18 +86,25 @@ namespace AssessmentAPI_Xunit.Controllers
 
             try
             {
-                if (brand == null)
-                {
-                    return BadRequest();
-
-                }
-
-                else
+                if (brand != null)
                 {
                     brand.BrandId = new int();
-                    var brandIsAdded = await brandinterface.AddBrand(brand);
-                    return Ok(brandIsAdded);
+                    var result = await brandinterface.AddBrand(brand);
+                    if (result != null)
+                    {
+                        return Ok(result);
+                    }
+                    else
+                    {
+                        return NotFound();
+                    }
+
                 }
+                else
+                { 
+                    return BadRequest();
+                }
+             
             }
             catch (Exception ex)
             {
@@ -112,16 +119,19 @@ namespace AssessmentAPI_Xunit.Controllers
             try
             {
                
-                
-                var existingBrand = brandinterface.GetBrandById(id);
-
-                var success = await brandinterface.UpdateBrand(id, brand, existingBrand);
-                if (success == false)
+                if(id!=brand.BrandId)
                 {
                     return BadRequest();
                 }
+                if(brandinterface.IsExists(id))
+                {
+                     await brandinterface.UpdateBrand(id, brand);
+                    return Ok("Success");
+                }
+                return BadRequest("Id not found");
+                
 
-                return Ok("Success");
+                
             }
             catch (Exception ex)
             {

@@ -6,7 +6,7 @@ namespace AssessmentAPI_Xunit.Service.Interface
     {
         public Task<VehicleType> AddVehicleType(VehicleType vehicleType);
         public ICollection<VehicleType> GetAllVehicleTypes();
-        public Task<bool> UpdateVehicleType(int id, VehicleType vehicletype, VehicleType existingtype);
+        public Task<bool> UpdateVehicleType(int id, VehicleType vehicletype);
         public bool IsExists(int id);
 
         public VehicleType GetVehicleTypeById(int id);

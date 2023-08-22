@@ -27,18 +27,25 @@ namespace AssessmentAPI_Xunit.Controllers
         {
             try
             {
-                if (vehicletype == null)
-                {
-                    return BadRequest();
-
-                }
-
-                else
+                if (vehicletype != null)
                 {
                     vehicletype.VehicleTypeId = new int();
-                    var vehicleTypeIsAdded = await vehicleinterface.AddVehicleType(vehicletype);
-                    return Ok(vehicletype);
+                    var result = await vehicleinterface.AddVehicleType(vehicletype);
+                    if (result != null)
+                    {
+                        return Ok(result);
+                    }
+                    else
+                    {
+                        return NotFound();
+                    }
+
                 }
+                else
+                {
+                    return BadRequest();
+                }
+             
             }
             catch (Exception ex)
             {
@@ -54,15 +61,18 @@ namespace AssessmentAPI_Xunit.Controllers
         {
             try
             {
-
-                var existingtype = vehicleinterface.GetVehicleTypeById(id);
-                var success = await vehicleinterface.UpdateVehicleType(id, vehicletype, existingtype);
-                if (success == false)
+                if (id != vehicletype.VehicleTypeId)
                 {
                     return BadRequest();
                 }
+                var istrue = vehicleinterface.IsExists(id);
+                if (istrue==true)
+                {
+                    var success=await vehicleinterface.UpdateVehicleType(id, vehicletype);
+                    return Ok("Success");
+                }
+                return BadRequest("Id not found");
 
-                return Ok("Success");
             }
             catch (Exception ex)
             {

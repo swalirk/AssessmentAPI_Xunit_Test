@@ -15,34 +15,18 @@ namespace AssessmentAPI_Xunit.Service
         public async Task<VehicleType> AddVehicleType(VehicleType vehicle)
         {
             await dbContext.VehicleTypes.AddAsync(vehicle);
-            var vehicleIsAdded = await dbContext.SaveChangesAsync();
-            return vehicleIsAdded > 0 ? vehicle : null;
+
+            await dbContext.SaveChangesAsync();
+            return vehicle;
         }
 
-        public async Task<bool> UpdateVehicleType(int id, VehicleType vehicletype, VehicleType existingtype)
+        public async Task<bool> UpdateVehicleType(int id, VehicleType vehicletype)
         {
-            if (id != vehicletype.VehicleTypeId)
-            {
-                return false;
-            }
-            if (!string.IsNullOrWhiteSpace(vehicletype.TypeName))
-            {
-                existingtype.TypeName = vehicletype.TypeName;
-            }
-
-            if (!string.IsNullOrWhiteSpace(vehicletype.Description))
-            {
-                existingtype.Description = vehicletype.Description;
-            }
-
-            if (vehicletype.IsActive.HasValue)
-            {
-                existingtype.IsActive = vehicletype.IsActive;
-            }
-
+            dbContext.VehicleTypes.Entry(vehicletype).State = EntityState.Modified;
             await dbContext.SaveChangesAsync();
             return true;
         }
+        
 
 
         public ICollection<VehicleType> GetAllVehicleTypes()

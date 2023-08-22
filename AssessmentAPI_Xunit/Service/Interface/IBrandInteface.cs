@@ -13,7 +13,7 @@ namespace AssessmentAPI_Xunit.Service.Interface
 
         public ICollection<Brand> GetAllBrands();
 
-        public Task<bool> UpdateBrand(int id, Brand brand, Brand existingBrand);
+        public Task<bool> UpdateBrand(int id, Brand brand);
         public Brand GetBrandById(int id);
 
     }
