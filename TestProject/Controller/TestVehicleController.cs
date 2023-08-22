@@ -26,24 +26,28 @@ namespace TestProject.Controller
         [Fact]
         public async Task AddVehicle_ValidInput_ReturnsOkResult()
         { 
-            // Act
+            // arrange
             var vehicleData = fixture.Create<VehicleType>();
             var returnData = fixture.Create<VehicleType>();
             vehicleInterface.Setup(c => c.AddVehicleType(vehicleData)).ReturnsAsync(returnData);
            
-            var result = vehicleController.AddVehicleType(returnData);
+            //act
+            var result = vehicleController.AddVehicleType(vehicleData);
 
             // Assert
             result.Should().NotBeNull();
+            var okObjectResult = result.Result.As<OkObjectResult>();
+            okObjectResult.Value.Should().BeEquivalentTo(returnData);
             result.Result.Should().BeAssignableTo<OkObjectResult>();
-            vehicleInterface.Verify(t => t.AddVehicleType(returnData), Times.Once());
+            vehicleInterface.Verify(c => c.AddVehicleType(vehicleData), Times.Once());
         }
         [Fact]
         public async Task AddVehicleType_NullInput_ReturnsBadRequest()
         {
-            // Act
+           
             VehicleType vehicleData = null;
             vehicleInterface.Setup(c => c.AddVehicleType(vehicleData)).ReturnsAsync((VehicleType)null);
+            // Act
             var result = vehicleController.AddVehicleType(vehicleData);
 
             // Assert
@@ -57,16 +61,17 @@ namespace TestProject.Controller
         public async Task AddVehicle_ExceptionThrown_ReturnsBadRequest()
         {
             // Arrange
-
-            vehicleInterface.Setup(repo => repo.AddVehicleType(It.IsAny<VehicleType>()))
+            var vehicletype=fixture.Create<VehicleType>();
+            vehicleInterface.Setup(repo => repo.AddVehicleType(vehicletype))
                 .ThrowsAsync(new Exception("Some error message"));
             // Act
-            var result = await vehicleController.AddVehicleType(new VehicleType());
+            var result = await vehicleController.AddVehicleType(vehicletype);
 
             // Assert
             result.Should().NotBeNull();
             var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
             Assert.Equal("Some error message", badRequestResult.Value);
+            vehicleInterface.Verify(t => t.AddVehicleType(vehicletype), Times.Once());
         }
 
 
@@ -86,9 +91,10 @@ namespace TestProject.Controller
             Assert.NotNull(result);
             Assert.Equal(200, result.StatusCode);
             var returnedData = result.Value as List<VehicleType>;
-            Assert.NotNull(returnedData);
             Assert.Equal(vehicleMock.Count, returnedData.Count);
-            
+            vehicleInterface.Verify(vi => vi.GetAllVehicleTypes(),Times.Once());
+
+
         }
 
 
@@ -106,6 +112,7 @@ namespace TestProject.Controller
             Assert.NotNull(result);
             Assert.Equal(400, result.StatusCode);
             Assert.Equal("Test Exception", result.Value);
+            vehicleInterface.Verify(vi => vi.GetAllVehicleTypes(), Times.Once());
         }
 
         
@@ -121,6 +128,7 @@ namespace TestProject.Controller
             // Assert
             Assert.NotNull(result); 
             Assert.IsType<NotFoundResult>(result);
+            vehicleInterface.Verify(vi => vi.GetAllVehicleTypes(), Times.Once());
             Assert.Equal(StatusCodes.Status404NotFound, result.StatusCode);
             
         }
@@ -133,9 +141,9 @@ namespace TestProject.Controller
 
             int id = fixture.Create<int>();
             var updateVehicleType = fixture.Create<VehicleType>();
-            var existingType = fixture.Create<VehicleType>();
-            vehicleInterface.Setup(v => v.GetVehicleTypeById(id)).Returns(existingType);
-            vehicleInterface.Setup(v => v.UpdateVehicleType(id, updateVehicleType, existingType)).ReturnsAsync(true);
+            updateVehicleType.VehicleTypeId = id;
+            vehicleInterface.Setup(v=>v.IsExists(id)).Returns(true);
+            vehicleInterface.Setup(v => v.UpdateVehicleType(id, updateVehicleType)).ReturnsAsync(true);
             // Act
             var result = await vehicleController.UpdateVehicleType(id, updateVehicleType);
 
@@ -145,6 +153,8 @@ namespace TestProject.Controller
             var okResult = result as OkObjectResult;
             Assert.Equal(StatusCodes.Status200OK, okResult.StatusCode);
             Assert.Equal("Success", okResult.Value);
+            vehicleInterface.Verify(v => v.IsExists(id),Times.Once);
+            vehicleInterface.Verify(v => v.UpdateVehicleType(id, updateVehicleType),Times.Once());
         }
 
        
@@ -155,8 +165,8 @@ namespace TestProject.Controller
 
             int id = fixture.Create<int>();
             var updatedVehicletype = fixture.Create<VehicleType>();
-            var existingtype = fixture.Create<VehicleType>();
-            vehicleInterface.Setup(service => service.UpdateVehicleType(id, updatedVehicletype,existingtype)).ReturnsAsync(false);
+          
+            vehicleInterface.Setup(service => service.UpdateVehicleType(id, updatedVehicletype)).ReturnsAsync(false);
 
             // Act
             var result =  vehicleController.UpdateVehicleType(id, updatedVehicletype);
@@ -165,6 +175,29 @@ namespace TestProject.Controller
             result.Should().NotBeNull();
             result.Should().BeAssignableTo<Task<IActionResult>>();
             result.Result.Should().BeAssignableTo<BadRequestResult>();
+            vehicleInterface.Verify(v => v.UpdateVehicleType(id, updatedVehicletype), Times.Never());
+        }
+        [Fact]
+        public async void UpdateVehicleType_ShouldReturnBadRequestResponse_WhenIdNotInDataBase()
+        {
+            //Arrange
+            int id = fixture.Create<int>();
+            var updateVehicletype = fixture.Create<VehicleType>();
+
+            updateVehicletype.VehicleTypeId = id;
+            vehicleInterface.Setup(x => x.IsExists(id)).Returns(false);
+            vehicleInterface.Setup(x => x.UpdateVehicleType(id,updateVehicletype)).ReturnsAsync(false);
+            
+
+            //Act
+            var result = await vehicleController.UpdateVehicleType(id,updateVehicletype);
+            //Assert
+            result.Should().NotBeNull();
+  
+            result.Should().BeAssignableTo<BadRequestObjectResult>();
+            vehicleInterface.Verify(x=>x.IsExists(id),Times.Once);
+            vehicleInterface.Verify(x => x.UpdateVehicleType(id, updateVehicletype), Times.Never());
+
         }
         [Fact]
         public async Task UpdateVehicleType_ShouldReturnBadRequestObjectResult_WhenAnExceptionOccurred()
@@ -172,9 +205,10 @@ namespace TestProject.Controller
             // Arrange
             int id = fixture.Create<int>();
             var updateVehicleType = fixture.Create<VehicleType>();
-            var existingType = fixture.Create<VehicleType>();
-            vehicleInterface.Setup(v => v.GetVehicleTypeById(id)).Returns(existingType);
-            vehicleInterface.Setup(v => v.UpdateVehicleType(id, updateVehicleType, existingType)).ThrowsAsync(new Exception("Something went wrong"));
+
+            updateVehicleType.VehicleTypeId = id;
+            vehicleInterface.Setup(v => v.IsExists(id)).Returns(true);
+            vehicleInterface.Setup(v => v.UpdateVehicleType(id, updateVehicleType)).ThrowsAsync(new Exception("Something went wrong"));
 
             // Act
             var result =await vehicleController.UpdateVehicleType(id, updateVehicleType);
@@ -184,6 +218,8 @@ namespace TestProject.Controller
             var badRequestResult = result as BadRequestObjectResult;
             Assert.Equal(StatusCodes.Status400BadRequest, badRequestResult.StatusCode);
             Assert.Equal("Something went wrong", badRequestResult.Value);
+            vehicleInterface.Verify(x => x.IsExists(id), Times.Once);
+            vehicleInterface.Verify(x => x.UpdateVehicleType(id, updateVehicleType), Times.Once());
         }
       
 
